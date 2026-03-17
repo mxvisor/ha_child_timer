@@ -1,0 +1,13 @@
+{
+  "domain": "child_timer",
+  "name": "Child Timer",
+  "version": "1.0.0",
+  "documentation": "https://github.com/mxvisor/ha-child-timer",
+  "issue_tracker": "https://github.com/mxvisor/ha-child-timer/issues",
+  "codeowners": ["@MXVisoR"],
+  "requirements": [],
+  "dependencies": ["http", "frontend", "lovelace"],
+  "after_dependencies": ["tts"],
+  "iot_class": "local_push",
+  "config_flow": true
+}

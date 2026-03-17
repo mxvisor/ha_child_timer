@@ -1,0 +1,39 @@
+type: vertical-stack
+cards:
+  - type: entities
+    title: Параметры таймера
+    entities:
+      - entity: select.child_timer_preset
+        name: Длительность (мин)
+      - entity: switch.child_timer_countdown
+        name: Обратный отсчёт (10…1)
+
+  - type: markdown
+    content: >
+      {% set e = 'sensor.child_timer' %} {% if states(e) == 'active' %} ⏱ {{
+      state_attr(e, 'remaining_formatted') }} {% elif states(e) == 'idle' %} ##
+      ⏹ Таймер остановлен {% else %} ## ❓ Интеграция не найдена Перезапустите
+      Home Assistant {% endif %}
+
+  - type: horizontal-stack
+    cards:
+      - type: button
+        entity: button.child_timer_start
+        name: Старт
+        icon: mdi:timer-play
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.child_timer_start
+      - type: button
+        entity: button.child_timer_stop
+        name: Стоп
+        icon: mdi:stop-circle-outline
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.child_timer_stop

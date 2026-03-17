@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Child Timer — настройка",
+        "description": "Временные параметры задаются слайдерами на карточке.",
+        "data": {
+          "action_type": "Канал озвучки (TTS или Яндекс)",
+          "tts_service": "Сущность TTS",
+          "media_player": "Медиаплеер для TTS",
+          "yandex_station": "Яндекс Станция",
+          "preset_minutes": "Пресеты (через запятую)"
+        },
+        "data_description": {
+          "yandex_station": "Требуется интеграция AlexxIT/YandexStation"
+        }
+      }
+    },
+    "error": {
+      "tts_missing": "Выберите сущность TTS и медиаплеер для режима Голос",
+      "yandex_missing": "Выберите Яндекс Станцию для режима Яндекс",
+      "required": "Поле обязательно",
+      "invalid_entity": "Неверный entity_id",
+      "not_yandex_station": "Выбранное устройство не является Яндекс Станцией"
+    },
+    "abort": {
+      "already_configured": "Интеграция Child Timer уже установлена"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки Child Timer",
+        "data": {
+          "action_type": "Канал озвучки (TTS или Яндекс)",
+          "tts_service": "Сущность TTS",
+          "media_player": "Медиаплеер для TTS",
+          "yandex_station": "Яндекс Станция",
+          "preset_minutes": "Пресеты (через запятую)"
+        },
+        "data_description": {
+          "yandex_station": "Требуется интеграция AlexxIT/YandexStation"
+        }
+      }
+    }
+  }
+}
