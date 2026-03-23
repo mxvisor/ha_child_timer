@@ -1,21 +1,31 @@
 """Менеджер таймера: нативная реализация через asyncio без timer-сущностей."""
+
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 from typing import Callable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import (
-    CONF_TTS_SERVICE, CONF_MEDIA_PLAYER,
-    CONF_YANDEX_STATION, CONF_ACTION_TYPE,
-    ACTION_TTS, ACTION_YANDEX,
+    DOMAIN,
+    ACTION_TTS,
+    ACTION_YANDEX,
+    CONF_ACTION_TYPE,
+    CONF_MEDIA_PLAYER,
+    CONF_TTS_SERVICE,
+    CONF_YANDEX_STATION,
     DEFAULT_DURATION,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+
 
 
 def _pluralize(n: int, one: str, few: str, many: str) -> str:
@@ -30,13 +40,6 @@ def _pluralize(n: int, one: str, few: str, many: str) -> str:
     return many
 
 
-_COUNTDOWN_WORDS = {
-    10: "Десять", 9: "Девять", 8: "Восемь", 7: "Семь",
-    6: "Шесть",  5: "Пять",   4: "Четыре", 3: "Три",
-    2: "Два",    1: "Один",
-}
-
-
 class ChildTimerManager:
     """Управляет одним экземпляром детского таймера."""
 
@@ -47,6 +50,7 @@ class ChildTimerManager:
         self._is_running: bool = False
         self._remaining: int = 0
         self._state_callbacks: list[Callable] = []
+        self._translations: dict = {}
 
     @property
     def config(self) -> dict:
@@ -89,7 +93,25 @@ class ChildTimerManager:
 
     async def async_setup(self) -> None:
         """Инициализация — ничего создавать не нужно, таймер запускается явно."""
+        await self._load_translations()
         _LOGGER.info("Child Timer настроен")
+
+    async def _load_translations(self) -> None:
+        """Загружаем файл переводов для текущего языка HA (с fallback на en)."""
+        lang = (self.hass.config.language or "en").lower()[:2]
+        component_dir = os.path.dirname(__file__)
+
+        def _read(filename: str) -> dict | None:
+            path = os.path.join(component_dir, "translations", filename)
+            if os.path.isfile(path):
+                with open(path, encoding="utf-8") as f:
+                    return json.load(f)
+            return None
+
+        data = await self.hass.async_add_executor_job(_read, f"{lang}.json")
+        if data is None:
+            data = await self.hass.async_add_executor_job(_read, "en.json")
+        self._translations = data or {}
 
     async def async_unload(self) -> None:
         """Останавливаем активный цикл при выгрузке."""
@@ -97,7 +119,11 @@ class ChildTimerManager:
             self._loop_task.cancel()
 
     async def start_timer(self, duration: int | None = None) -> None:
-        """Запускает (или перезапускает) таймер. Без аргументов читает из number entity."""
+        """
+        Запускает (или перезапускает) таймер.
+
+        Без аргументов читает из `number.child_timer_duration`.
+        """
         dur = duration if duration is not None else self._get_duration()
         # Выставляем состояние ДО отмены старого таска — карточка не мигнёт в idle
         self._is_running = True
@@ -116,11 +142,17 @@ class ChildTimerManager:
             dur_short = f"{m} мин {s} сек"
         dur_full = self._format_duration_full(dur)
         try:
-            await self._send_notification(
-                "▶ Таймер запущен",
-                f"Установлен таймер на {dur_short}",
-                f"Установлен таймер на {dur_full}",
+            title = await self._localize(
+                "component.child_timer.notify.started.title"
             )
+            short = await self._localize(
+                "component.child_timer.notify.started.short",
+                dur_short=dur_short,
+            )
+            full = await self._localize(
+                "component.child_timer.notify.started.full", dur_full=dur_full
+            )
+            await self._send_notification(title, short, full)
         except Exception:  # noqa: BLE001
             _LOGGER.debug("Не удалось отправить уведомление о запуске")
 
@@ -132,7 +164,13 @@ class ChildTimerManager:
         self._remaining = 0
         self._notify_state_change()
         try:
-            await self._send_notification("⏹ Таймер остановлен", "Таймер был отменён")
+            title = await self._localize(
+                "component.child_timer.notify.stopped.title"
+            )
+            msg = await self._localize(
+                "component.child_timer.notify.stopped.msg"
+            )
+            await self._send_notification(title, msg)
         except Exception:  # noqa: BLE001
             _LOGGER.debug("Не удалось отправить уведомление об остановке")
 
@@ -140,7 +178,9 @@ class ChildTimerManager:
         """Основной цикл: секунды + голосовые объявления по алгоритму частоты."""
         countdown_enabled = self._is_countdown_enabled()
         _LOGGER.debug(
-            "Цикл запущен: длительность=%s, countdown=%s", duration, countdown_enabled
+            "Цикл запущен: длительность=%s, countdown=%s",
+            duration,
+            countdown_enabled,
         )
 
         self._is_running = True
@@ -156,22 +196,38 @@ class ChildTimerManager:
                 if (
                     duration > 10
                     and countdown_enabled
-                    and self._remaining in _COUNTDOWN_WORDS
+                    and 1 <= self._remaining <= 10
                 ):
-                    await self._send_tts_only(_COUNTDOWN_WORDS[self._remaining])
+                    # localized countdown word (10..1)
+                    word = await self._localize(
+                        f"component.child_timer.tts.countdown.{self._remaining}"
+                    )
+                    # _localize returns key on failure; use numeric fallback
+                    if isinstance(word, str) and word.startswith(
+                        "component.child_timer"
+                    ):
+                        word = str(self._remaining)
+                    await self._send_tts_only(word)
                     continue
 
                 if self._should_announce(self._remaining, countdown_enabled):
-                    await self._send_notification(
-                        "⏱ Таймер",
-                        self._format_remaining(self._remaining),
-                        self._format_remaining_full(self._remaining),
+                    title = await self._localize(
+                        "component.child_timer.notify.announce.title"
                     )
+                    short = self._format_remaining(self._remaining)
+                    full = self._format_remaining_full(self._remaining)
+                    await self._send_notification(title, short, full)
 
             self._is_running = False
             self._remaining = 0
             self._notify_state_change()
-            await self._send_notification("✓ Таймер завершён", "Время истекло!", "Время вышло!")
+            title = await self._localize(
+                "component.child_timer.notify.finished.title"
+            )
+            msg = await self._localize(
+                "component.child_timer.notify.finished.msg"
+            )
+            await self._send_notification(title, msg)
 
         except asyncio.CancelledError:
             # Не сбрасываем состояние если уже запущен новый таск (перезапуск)
@@ -180,13 +236,15 @@ class ChildTimerManager:
                 self._notify_state_change()
             _LOGGER.debug("Цикл уведомлений остановлен")
 
-    def _should_announce(self, remaining: int, countdown_enabled: bool) -> bool:
+    def _should_announce(
+        self, remaining: int, countdown_enabled: bool
+    ) -> bool:
         """Частота: >1ч каждые 30 мин; 60–15 мин — каждые 15 мин;
         15–5 мин — каждые 5 мин; 5–1 мин — каждую минуту; 60–15 сек — каждые 15 сек.
         Обратный отсчёт 10…1 выводится отдельно."""
         if remaining <= 0:
             return False
-        if countdown_enabled and remaining in _COUNTDOWN_WORDS:
+        if countdown_enabled and 1 <= remaining <= 10:
             return False
         if remaining > 3600:
             return remaining % 1800 == 0
@@ -208,24 +266,69 @@ class ChildTimerManager:
         return f"Осталось {m} мин {s} сек"
 
     def _format_remaining_full(self, seconds: int) -> str:
-        """Полный формат для TTS/Яндекс: 'Осталось 5 минут 30 секунд'."""
+        """Полный формат для TTS/Яндекс, локализованный (русский/английский)."""
         m, s = divmod(seconds, 60)
-        parts = []
+        lang = (self.hass.config.language or "").lower()
+        parts: list[str] = []
+        if lang.startswith("ru"):
+            if m:
+                parts.append(
+                    f"{m} {_pluralize(m, 'минута', 'минуты', 'минут')}"
+                )
+            if s:
+                parts.append(
+                    f"{s} {_pluralize(s, 'секунда', 'секунды', 'секунд')}"
+                )
+            return "Осталось " + " ".join(parts) if parts else "Время вышло"
+        # default: English-ish formatting
         if m:
-            parts.append(f"{m} {_pluralize(m, 'минута', 'минуты', 'минут')}")
+            parts.append(f"{m} {'minute' if m == 1 else 'minutes'}")
         if s:
-            parts.append(f"{s} {_pluralize(s, 'секунда', 'секунды', 'секунд')}")
-        return "Осталось " + " ".join(parts) if parts else "Время вышло"
+            parts.append(f"{s} {'second' if s == 1 else 'seconds'}")
+        return "Left " + " ".join(parts) if parts else "Time is up"
+
+    async def _localize(self, key: str, **kwargs) -> str:
+        """Возвращает локализованную строку из кешированного JSON переводов.
+
+        Возвращает сам ключ при отсутствии перевода — используется как
+        индикатор fallback (код проверяет префикс 'component.child_timer').
+        """
+        parts = key.split(".")
+        val: object = self._translations
+        for part in parts:
+            if isinstance(val, dict):
+                val = val.get(part)
+            else:
+                val = None
+                break
+        if not isinstance(val, str):
+            return key
+        try:
+            return val.format(**kwargs) if kwargs else val
+        except Exception:
+            return val
 
     def _format_duration_full(self, seconds: int) -> str:
-        """Полный формат длительности для TTS: '5 минут 30 секунд'."""
+        """Полный формат длительности для TTS — локализованный."""
         m, s = divmod(seconds, 60)
-        parts = []
+        lang = (self.hass.config.language or "").lower()
+        parts: list[str] = []
+        if lang.startswith("ru"):
+            if m:
+                parts.append(
+                    f"{m} {_pluralize(m, 'минута', 'минуты', 'минут')}"
+                )
+            if s:
+                parts.append(
+                    f"{s} {_pluralize(s, 'секунда', 'секунды', 'секунд')}"
+                )
+            return " ".join(parts) if parts else "0 секунд"
+        # default English
         if m:
-            parts.append(f"{m} {_pluralize(m, 'минута', 'минуты', 'минут')}")
+            parts.append(f"{m} {'minute' if m == 1 else 'minutes'}")
         if s:
-            parts.append(f"{s} {_pluralize(s, 'секунда', 'секунды', 'секунд')}")
-        return " ".join(parts) if parts else "0 секунд"
+            parts.append(f"{s} {'second' if s == 1 else 'seconds'}")
+        return " ".join(parts) if parts else "0 seconds"
 
     def _is_countdown_enabled(self) -> bool:
         """Читает состояние switch.child_timer_countdown (по умолчанию включён)."""
@@ -239,7 +342,6 @@ class ChildTimerManager:
             return ACTION_TTS
         return action_type
 
-
     async def _send_tts_only(self, message: str) -> None:
         """Отправляет только TTS/Яндекс (используется для обратного отсчёта)."""
         action_type = self._current_action_type()
@@ -249,7 +351,8 @@ class ChildTimerManager:
             player = self.config.get(CONF_MEDIA_PLAYER, "")
             if tts_entity and player:
                 await self.hass.services.async_call(
-                    "tts", "speak",
+                    "tts",
+                    "speak",
                     {
                         "entity_id": tts_entity,
                         "media_player_entity_id": player,
@@ -263,7 +366,8 @@ class ChildTimerManager:
             yandex = self.config.get(CONF_YANDEX_STATION, "")
             if yandex:
                 await self.hass.services.async_call(
-                    "media_player", "play_media",
+                    "media_player",
+                    "play_media",
                     {
                         "entity_id": yandex,
                         "media_content_id": message,
@@ -272,7 +376,9 @@ class ChildTimerManager:
                     blocking=False,
                 )
 
-    async def _send_notification(self, title: str, message: str, message_tts: str | None = None) -> None:
+    async def _send_notification(
+        self, title: str, message: str, message_tts: str | None = None
+    ) -> None:
         """Голосовое уведомление (TTS и/или Яндекс)."""
         if message_tts is None:
             message_tts = message
@@ -283,7 +389,8 @@ class ChildTimerManager:
             player = self.config.get(CONF_MEDIA_PLAYER, "")
             if tts_entity and player:
                 await self.hass.services.async_call(
-                    "tts", "speak",
+                    "tts",
+                    "speak",
                     {
                         "entity_id": tts_entity,
                         "media_player_entity_id": player,
@@ -298,7 +405,8 @@ class ChildTimerManager:
             if yandex:
                 # Яндекс Станция: media_player.play_media с media_content_type="text"
                 await self.hass.services.async_call(
-                    "media_player", "play_media",
+                    "media_player",
+                    "play_media",
                     {
                         "entity_id": yandex,
                         "media_content_id": message_tts,

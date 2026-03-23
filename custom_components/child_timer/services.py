@@ -1,4 +1,5 @@
 """Регистрация сервисов Child Timer."""
+
 from __future__ import annotations
 
 import voluptuous as vol
@@ -7,11 +8,13 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from .const import DOMAIN
 
 SERVICE_START = "start"
-SERVICE_STOP  = "stop"
+SERVICE_STOP = "stop"
 
-SERVICE_SCHEMA_START = vol.Schema({
-    vol.Optional("duration"): vol.All(int, vol.Range(min=10)),
-})
+SERVICE_SCHEMA_START = vol.Schema(
+    {
+        vol.Optional("duration"): vol.All(int, vol.Range(min=10)),
+    }
+)
 SERVICE_SCHEMA_STOP = vol.Schema({})
 
 

@@ -1,4 +1,9 @@
-"""Number platform для Child Timer — слайдеры длительности и интервала с сохранением состояния."""
+"""
+Number platform для Child Timer.
+
+Слайдеры длительности и интервала с сохранением состояния.
+"""
+
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -7,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, DEFAULT_DURATION
+from .const import DEFAULT_DURATION
 
 
 async def async_setup_entry(
@@ -15,9 +20,11 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([
-        ChildTimerDurationNumber(entry),
-    ])
+    async_add_entities(
+        [
+            ChildTimerDurationNumber(entry),
+        ]
+    )
 
 
 class ChildTimerDurationNumber(NumberEntity, RestoreEntity):
@@ -47,5 +54,3 @@ class ChildTimerDurationNumber(NumberEntity, RestoreEntity):
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value
         self.async_write_ha_state()
-
-

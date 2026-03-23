@@ -1,4 +1,5 @@
 """Select platform для Child Timer — выбор предустановок длительности."""
+
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
@@ -6,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, CONF_PRESET_MINUTES, DEFAULT_PRESETS
+from .const import CONF_PRESET_MINUTES, DEFAULT_PRESETS
 from .presets import sanitize_presets
 
 
@@ -27,7 +28,9 @@ class ChildTimerPresetSelect(SelectEntity):
         self.entity_id = "select.child_timer_preset"
         self._attr_unique_id = f"{entry.entry_id}_preset_select"
         self._attr_name = "Длительность (пресет)"
-        presets = sanitize_presets(entry.options.get(CONF_PRESET_MINUTES, DEFAULT_PRESETS))
+        presets = sanitize_presets(
+            entry.options.get(CONF_PRESET_MINUTES, DEFAULT_PRESETS)
+        )
         self._presets = presets
         self._attr_options = [str(v) for v in presets]
 

@@ -18,22 +18,20 @@ cards:
   - type: horizontal-stack
     cards:
       - type: button
-        entity: button.child_timer_start
         name: Старт
         icon: mdi:timer-play
         show_state: false
         tap_action:
-          action: perform-action
-          perform_action: button.press
+          action: call-service
+          service: switch.turn_on
           target:
-            entity_id: button.child_timer_start
+            entity_id: switch.child_timer
       - type: button
-        entity: button.child_timer_stop
         name: Стоп
         icon: mdi:stop-circle-outline
         show_state: false
         tap_action:
-          action: perform-action
-          perform_action: button.press
+          action: call-service
+          service: switch.turn_off
           target:
-            entity_id: button.child_timer_stop
+            entity_id: switch.child_timer

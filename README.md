@@ -1,17 +1,20 @@
 # Child Timer
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz) [![Version](https://img.shields.io/badge/version-1.4.2-blue.svg)](CHANGELOG.md)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz) [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/mxvisor/ha-child-timer/releases)
+
+**Language:** [English](README.md) | [Русский](README.ru.md)
 
 Custom Home Assistant integration that runs a spoken timer for kids. Delivered through HACS as a single-instance integration together with its own Lovelace card.
 
 ## What you get
 - Config Flow: choose voice channel - generic TTS (any `tts.*` + `media_player.*`) or Yandex Station (AlexxIT/YandexStation).
 - Entities:
-  - `sensor.child_timer` - state `active`/`idle`, attributes: `remaining_seconds`, `total_seconds`, `remaining_formatted`, `progress` (0..1).
+  - `sensor.child_timer` - state `active`/`idle`.
+    - attributes: `remaining_seconds` (int), `total_seconds` (int), `remaining_formatted` (str), `progress` (float 0.0..1.0).
   - `number.child_timer_duration` - slider 1-1440 minutes, persists across restarts, default 5 minutes.
   - `select.child_timer_preset` - preset list from the config wizard (default: 1-10, 15, 20, 25, 30, 40, 50, 60 minutes).
   - `switch.child_timer_countdown` - enables 10..1 spoken countdown near the end (on by default).
-  - `button.child_timer_start` / `button.child_timer_stop` - start/stop with the current duration.
+  - `switch.child_timer` - run/stop switch: `turn_on` starts the timer, `turn_off` stops it.
 - Services: `child_timer.start` (optional `duration` in seconds, min 10) and `child_timer.stop`. The service can launch short timers down to 10 seconds even though the duration slider starts at 1 minute; this is intentional so automations can run sub-minute timers.
 - Lovelace card `custom:child-timer-card` is served by the integration and tries to auto-register its resource.
 - Voice notification cadence (also used for TTS/Yandex messages):
@@ -50,8 +53,7 @@ type: custom:child-timer-card
 preset_entity: select.child_timer_preset
 countdown_entity: switch.child_timer_countdown
 sensor_entity: sensor.child_timer
-start_entity: button.child_timer_start
-stop_entity: button.child_timer_stop
+run_entity: switch.child_timer
 title: Child Timer
 ```
 
@@ -68,7 +70,7 @@ For a quick start you can also drop `examples/ha_child_timer_card.yaml` into you
 
 ## Support
 - Issues and questions: https://github.com/mxvisor/ha-child-timer/issues
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Changelog: https://github.com/mxvisor/ha-child-timer/releases
 
 ## Credits
 Built with the assistance of [Claude AI](https://www.anthropic.com) (Anthropic).

@@ -1,19 +1,29 @@
 """Config Flow — мастер настройки Child Timer (один экземпляр)."""
+
 from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers import translation as translation_helper
 
 from .const import (
+    ACTION_TTS,
+    ACTION_YANDEX,
+    CONF_ACTION_TYPE,
+    CONF_MEDIA_PLAYER,
+    CONF_PRESET_MINUTES,
+    CONF_TTS_SERVICE,
+    CONF_YANDEX_STATION,
+    DEFAULT_ACTION,
+    DEFAULT_PRESETS,
     DOMAIN,
-    CONF_TTS_SERVICE, CONF_MEDIA_PLAYER,
-    CONF_YANDEX_STATION, CONF_ACTION_TYPE, CONF_PRESET_MINUTES,
-    ACTION_TTS, ACTION_YANDEX,
-    DEFAULT_ACTION, DEFAULT_PRESETS,
 )
 from .presets import sanitize_presets
+
+
+
 
 
 def _needs_tts(action: str) -> bool:
@@ -27,6 +37,7 @@ def _needs_yandex(action: str) -> bool:
 def _is_yandex_entity(hass, entity_id: str) -> bool:
     """Проверяем что entity_id принадлежит интеграции yandex_station."""
     from homeassistant.helpers import entity_registry as er
+
     registry = er.async_get(hass)
     entry = registry.async_get(entity_id)
     return entry is not None and entry.platform == "yandex_station"
@@ -72,44 +83,71 @@ def _optional_entity(key: str, current_value: str | None) -> vol.Optional:
     return vol.Optional(key)
 
 
-def _build_schema(
+async def _build_schema(
+    hass,
     current_action: str,
     current_presets: str,
     current_tts: str | None = None,
     current_player: str | None = None,
     current_yandex: str | None = None,
 ) -> vol.Schema:
-    return vol.Schema({
-        vol.Required(CONF_ACTION_TYPE, default=current_action): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=[
-                    {"value": ACTION_TTS,    "label": "Голос (TTS)"},
-                    {"value": ACTION_YANDEX, "label": "Яндекс колонка"},
-                ],
-                mode=selector.SelectSelectorMode.LIST,
-            )
-        ),
-        vol.Optional(
-            CONF_PRESET_MINUTES,
-            default=current_presets,
-        ): selector.TextSelector(),
-        _optional_entity(CONF_TTS_SERVICE, current_tts): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="tts")
-        ),
-        _optional_entity(CONF_MEDIA_PLAYER, current_player): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="media_player")
-        ),
-        _optional_entity(CONF_YANDEX_STATION, current_yandex): selector.EntitySelector(
-            selector.EntitySelectorConfig(
-                filter=[
-                    selector.EntityFilterSelectorConfig(
-                        integration="yandex_station",
-                        domain="media_player",
-                    )
-                ]
-            )
-        ),
-    })
+    """Build schema with localized option labels (async)."""
+    # Получаем переводы для текущего языка; делаем безопасный fallback
+    tts_label = "Voice (TTS)"
+    yandex_label = "Yandex Station"
+    try:
+        translations = await translation_helper.async_get_translations(
+            hass, hass.config.language
+        )
+        option = translations.get("option", {})
+        action_type = option.get("action_type", {})
+        tts_label = action_type.get("tts", tts_label)
+        yandex_label = action_type.get("yandex", yandex_label)
+    except Exception:
+        # В случае проблем — оставить значения по умолчанию
+        pass
+
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_ACTION_TYPE, default=current_action
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": ACTION_TTS, "label": tts_label},
+                        {"value": ACTION_YANDEX, "label": yandex_label},
+                    ],
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            ),
+            vol.Optional(
+                CONF_PRESET_MINUTES,
+                default=current_presets,
+            ): selector.TextSelector(),
+            _optional_entity(
+                CONF_TTS_SERVICE, current_tts
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="tts")
+            ),
+            _optional_entity(
+                CONF_MEDIA_PLAYER, current_player
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="media_player")
+            ),
+            _optional_entity(
+                CONF_YANDEX_STATION, current_yandex
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    filter=[
+                        selector.EntityFilterSelectorConfig(
+                            integration="yandex_station",
+                            domain="media_player",
+                        )
+                    ]
+                )
+            ),
+        }
+    )
 
 
 class ChildTimerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -132,12 +170,16 @@ class ChildTimerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.hass,
             )
             if not errors:
-                return self.async_create_entry(title="Child Timer", data=user_input)
+                return self.async_create_entry(
+                    title="Child Timer", data=user_input
+                )
 
         default_presets = ", ".join(str(p) for p in DEFAULT_PRESETS)
         return self.async_show_form(
             step_id="user",
-            data_schema=_build_schema(DEFAULT_ACTION, default_presets),
+            data_schema=await _build_schema(
+                self.hass, DEFAULT_ACTION, default_presets
+            ),
             errors=errors,
         )
 
@@ -179,7 +221,8 @@ class ChildTimerOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_build_schema(
+            data_schema=await _build_schema(
+                self.hass,
                 current_action=current_action,
                 current_presets=current_presets,
                 current_tts=current.get(CONF_TTS_SERVICE),

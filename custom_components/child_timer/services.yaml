@@ -1,0 +1,9 @@
+start:
+  description: "Start the child timer. If `duration` is provided, it sets the timer duration in seconds."
+  fields:
+    duration:
+      description: "Duration in seconds (minimum 10)."
+      example: 60
+
+stop:
+  description: "Stop the child timer."

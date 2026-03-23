@@ -11,8 +11,7 @@
  *   preset_entity:   select.child_timer_preset
  *   countdown_entity: switch.child_timer_countdown
  *   sensor_entity:   sensor.child_timer
- *   start_entity:    button.child_timer_start
- *   stop_entity:     button.child_timer_stop
+ *   run_entity:       switch.child_timer
  */
 
 class ChildTimerCard extends HTMLElement {
@@ -23,12 +22,19 @@ class ChildTimerCard extends HTMLElement {
       preset_entity:    config.preset_entity    || 'select.child_timer_preset',
       countdown_entity: config.countdown_entity || 'switch.child_timer_countdown',
       sensor_entity:    config.sensor_entity    || 'sensor.child_timer',
-      start_entity:     config.start_entity     || 'button.child_timer_start',
-      stop_entity:      config.stop_entity      || 'button.child_timer_stop',
+      run_entity:        config.run_entity       || 'switch.child_timer',
       title:            config.title            || 'Child Timer',
     };
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this._build();
+  }
+
+  _t(key, fallback) {
+    try {
+      return this._hass ? this._hass.localize(key) || fallback : fallback;
+    } catch (e) {
+      return fallback;
+    }
   }
 
   /* ── Обновление состояния ───────────────────────────────────────────── */
@@ -47,8 +53,8 @@ class ChildTimerCard extends HTMLElement {
           <!-- Заголовок -->
           <div class="card-header">
             <span class="header-icon">⏱</span>
-            <span class="header-title">${this._config.title}</span>
-            <span class="status-badge" id="badge">...</span>
+            <span class="header-title">${this._t('component.child_timer.card.title', this._config.title)}</span>
+            <span class="status-badge" id="badge">${this._t('component.child_timer.card.status.loading', '...')}</span>
           </div>
 
           <!-- Дисплей времени -->
@@ -60,6 +66,7 @@ class ChildTimerCard extends HTMLElement {
               </svg>
               <div class="ring-center">
                 <div class="time-label" id="time-label">--:--</div>
+                <div class="time-sub" id="time-sub"></div>
               </div>
             </div>
           </div>
@@ -67,16 +74,16 @@ class ChildTimerCard extends HTMLElement {
           <!-- Параметры -->
           <div class="params-section">
             <div class="param-row">
-              <span class="param-label">Длительность</span>
+              <span class="param-label">${this._t('component.child_timer.card.label.duration','Длительность')}</span>
               <div class="preset-wrap">
                 <select class="param-select" id="preset-select">
-                  <option>загрузка...</option>
+                  <option>${this._t('component.child_timer.card.label.loading','загрузка...')}</option>
                 </select>
-                <span class="preset-unit">мин</span>
+                <span class="preset-unit">${this._t('component.child_timer.card.unit.min','мин')}</span>
               </div>
             </div>
             <div class="param-row">
-              <span class="param-label">Обратный отсчёт 10…1</span>
+              <span class="param-label">${this._t('component.child_timer.card.label.countdown','Обратный отсчёт 10…1')}</span>
               <label class="toggle">
                 <input type="checkbox" id="countdown-toggle"/>
                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -88,11 +95,11 @@ class ChildTimerCard extends HTMLElement {
           <div class="btn-row">
             <button class="btn btn-start" id="btn-start">
               <svg viewBox="0 0 24 24" class="btn-icon"><path d="M8 5v14l11-7z"/></svg>
-              Старт
+              ${this._t('component.child_timer.card.button.start','Старт')}
             </button>
             <button class="btn btn-stop" id="btn-stop">
               <svg viewBox="0 0 24 24" class="btn-icon"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-              Стоп
+              ${this._t('component.child_timer.card.button.stop','Стоп')}
             </button>
           </div>
 
@@ -112,12 +119,12 @@ class ChildTimerCard extends HTMLElement {
     });
 
     this.shadowRoot.getElementById('btn-start').addEventListener('click', () => {
-      this._callService('button', 'press', this._config.start_entity);
+      this._callService('switch', 'turn_on', this._config.run_entity);
       this._pulse('btn-start');
     });
 
     this.shadowRoot.getElementById('btn-stop').addEventListener('click', () => {
-      this._callService('button', 'press', this._config.stop_entity);
+      this._callService('switch', 'turn_off', this._config.run_entity);
       this._pulse('btn-stop');
     });
   }
@@ -138,8 +145,9 @@ class ChildTimerCard extends HTMLElement {
 
     if (!sensor) {
       timeLbl.textContent = '--:--';
-      timeSub.textContent = 'интеграция не найдена';
-      badge.textContent   = '?';
+      const timeSub = this.shadowRoot.getElementById('time-sub');
+      if (timeSub) timeSub.textContent = this._t('component.child_timer.card.error.integration_missing','интеграция не найдена');
+      badge.textContent   = this._t('component.child_timer.card.status.unknown','?');
       badge.className = 'status-badge badge-unknown';
       return;
     }
@@ -155,7 +163,7 @@ class ChildTimerCard extends HTMLElement {
     if (state === 'active') {
       const sec = attrs.remaining_seconds !== undefined ? attrs.remaining_seconds : 0;
       timeLbl.textContent        = this._formatSeconds(sec);
-      badge.textContent          = 'активен';
+      badge.textContent          = this._t('component.child_timer.card.status.active','активен');
       badge.className            = 'status-badge badge-active';
       arc.style.stroke           = '#06D6A0';
       arc.style.strokeDashoffset = CIRC * (1 - progress);
@@ -165,7 +173,7 @@ class ChildTimerCard extends HTMLElement {
       const presetState = this._hass.states[this._config.preset_entity];
       const presetVal   = presetState ? presetState.state : '';
       timeLbl.textContent        = this._formatPreset(presetVal);
-      badge.textContent          = 'готов';
+      badge.textContent          = this._t('component.child_timer.card.status.idle','готов');
       badge.className            = 'status-badge badge-idle';
       arc.style.stroke           = 'var(--divider-color, #e0e0e0)';
       arc.style.strokeDashoffset = CIRC;

@@ -27,6 +27,12 @@
       "already_configured": "Child Timer integration is already installed"
     }
   },
+  "option": {
+    "action_type": {
+      "tts": "Voice (TTS)",
+      "yandex": "Yandex Station"
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -40,6 +46,52 @@
         },
         "data_description": {
           "yandex_station": "Requires AlexxIT/YandexStation integration"
+        }
+      }
+    }
+  },
+  "component": {
+    "child_timer": {
+      "card": {
+        "title": "Child Timer",
+        "status": {
+          "loading": "...",
+          "active": "active",
+          "idle": "ready",
+          "unknown": "unknown"
+        },
+        "label": {
+          "duration": "Duration",
+          "countdown": "Countdown 10…1",
+          "loading": "loading..."
+        },
+        "unit": { "min": "min" },
+        "button": { "start": "Start", "stop": "Stop" },
+        "error": { "integration_missing": "integration not found" },
+        "meta": { "name": "Child Timer", "description": "Child Timer control card with notifications" }
+      },
+      "notify": {
+        "started": {
+          "title": "▶ Timer started",
+          "short": "Timer set to {dur_short}",
+          "full": "Timer set to {dur_full}"
+        },
+        "stopped": { "title": "⏹ Timer stopped", "msg": "Timer was cancelled" },
+        "announce": { "title": "⏱ Timer", "msg": "{remaining}" },
+        "finished": { "title": "✓ Timer finished", "msg": "Time is up!" }
+      },
+      "tts": {
+        "countdown": {
+          "10": "Ten",
+          "9": "Nine",
+          "8": "Eight",
+          "7": "Seven",
+          "6": "Six",
+          "5": "Five",
+          "4": "Four",
+          "3": "Three",
+          "2": "Two",
+          "1": "One"
         }
       }
     }

@@ -1,10 +1,12 @@
 """Serve and auto-register Lovelace resource for Child Timer card."""
+
 from __future__ import annotations
 
 import logging
 import os
-import time
 import re
+import time
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.lovelace import LOVELACE_DATA
@@ -42,7 +44,9 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
 
     resources = getattr(lovelace, "resources", None)
     if not resources:
-        _LOGGER.debug("Lovelace resources not available, skipping resource registration")
+        _LOGGER.debug(
+            "Lovelace resources not available, skipping resource registration"
+        )
         return
 
     if not resources.loaded:
@@ -64,8 +68,12 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     else:
         _LOGGER.info("Creating Lovelace resource for Child Timer card")
         if getattr(resources, "async_create_item", None):
-            await resources.async_create_item({"res_type": "module", "url": url})
-        elif getattr(resources, "data", None) and getattr(resources.data, "append", None):
+            await resources.async_create_item(
+                {"res_type": "module", "url": url}
+            )
+        elif getattr(resources, "data", None) and getattr(
+            resources.data, "append", None
+        ):
             resources.data.append({"type": "module", "url": url})
 
 
@@ -89,7 +97,9 @@ class ChildTimerCardView(HomeAssistantView):
             return web.Response(status=404, text="File not found on disk")
 
         try:
-            content = await hass.async_add_executor_job(self._read_file, file_path)
+            content = await hass.async_add_executor_job(
+                self._read_file, file_path
+            )
 
             # Inject version into CARD_VERSION constant if present
             try:
@@ -106,9 +116,13 @@ class ChildTimerCardView(HomeAssistantView):
                     count=1,
                 )
             except Exception:
-                _LOGGER.debug("Could not inject card version; serving original file")
+                _LOGGER.debug(
+                    "Could not inject card version; serving original file"
+                )
 
-            return web.Response(body=content, content_type="application/javascript")
+            return web.Response(
+                body=content, content_type="application/javascript"
+            )
         except Exception as exc:  # pragma: no cover
             _LOGGER.error("Error reading card file: %s", exc)
             return web.Response(status=500, text=str(exc))

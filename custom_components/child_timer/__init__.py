@@ -1,18 +1,24 @@
 """Child Timer Integration для Home Assistant."""
+
 from __future__ import annotations
 
 import logging
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import CoreState, EVENT_HOMEASSISTANT_STARTED, HomeAssistant
+from homeassistant.core import (
+    EVENT_HOMEASSISTANT_STARTED,
+    CoreState,
+    HomeAssistant,
+)
 
 from .const import DOMAIN
-from .timer_manager import ChildTimerManager
-from .services import async_register_services
 from .frontend import async_register_frontend
+from .services import async_register_services
+from .timer_manager import ChildTimerManager
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor", "button", "number", "switch", "select"]
+PLATFORMS = ["sensor", "number", "switch", "select"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -37,9 +43,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if hass.state == CoreState.running:
         await _register_frontend()
     else:
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register_frontend)
+        hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STARTED, _register_frontend
+        )
 
-    # Регистрируем платформы sensor и button
+    # Регистрируем платформы
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_update_options))
@@ -49,13 +57,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Удаление интеграции."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry, PLATFORMS
+    )
     if unload_ok:
         manager: ChildTimerManager = hass.data[DOMAIN].pop(entry.entry_id)
         await manager.async_unload()
     return unload_ok
 
 
-async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_update_options(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
     """Перезагрузка при изменении настроек."""
     await hass.config_entries.async_reload(entry.entry_id)

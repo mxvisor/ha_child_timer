@@ -1,4 +1,5 @@
 """Sensor platform для Child Timer — статус и оставшееся время."""
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
@@ -50,8 +51,8 @@ class ChildTimerSensor(SensorEntity):
         remaining = self._manager.remaining_seconds
         progress = round(remaining / total, 4) if total > 0 else 0.0
         return {
-            "remaining_seconds":   remaining,
-            "total_seconds":       total,
+            "remaining_seconds": remaining,
+            "total_seconds": total,
             "remaining_formatted": self._manager.remaining_formatted,
-            "progress":            progress,  # 0.0..1.0 для кольца в карточке
+            "progress": progress,  # 0.0..1.0 для кольца в карточке
         }

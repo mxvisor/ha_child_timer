@@ -1,4 +1,5 @@
 """Утилиты для работы со списком пресетов минут."""
+
 from __future__ import annotations
 
 from .const import DEFAULT_PRESETS

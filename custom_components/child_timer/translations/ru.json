@@ -27,6 +27,9 @@
       "already_configured": "Интеграция Child Timer уже установлена"
     }
   },
+  "option": {
+    "action_type": { "tts": "Голос (TTS)", "yandex": "Яндекс колонка" }
+  },
   "options": {
     "step": {
       "init": {
@@ -38,8 +41,39 @@
           "yandex_station": "Яндекс Станция",
           "preset_minutes": "Пресеты (через запятую)"
         },
-        "data_description": {
-          "yandex_station": "Требуется интеграция AlexxIT/YandexStation"
+        "data_description": { "yandex_station": "Требуется интеграция AlexxIT/YandexStation" }
+      }
+    }
+  },
+  "component": {
+    "child_timer": {
+      "card": {
+        "title": "Детский таймер",
+        "status": { "loading": "...", "active": "активен", "idle": "готов", "unknown": "неизвестно" },
+        "label": { "duration": "Длительность", "countdown": "Обратный отсчёт 10…1", "loading": "загрузка..." },
+        "unit": { "min": "мин" },
+        "button": { "start": "Старт", "stop": "Стоп" },
+        "error": { "integration_missing": "интеграция не найдена" },
+        "meta": { "name": "Детский таймер", "description": "Карточка управления детским таймером с уведомлениями" }
+      },
+      "notify": {
+        "started": { "title": "▶ Таймер запущен", "short": "Установлен таймер на {dur_short}", "full": "Установлен таймер на {dur_full}" },
+        "stopped": { "title": "⏹ Таймер остановлен", "msg": "Таймер был отменён" },
+        "announce": { "title": "⏱ Таймер", "msg": "{remaining}" },
+        "finished": { "title": "✓ Таймер завершён", "msg": "Время вышло!" }
+      },
+      "tts": {
+        "countdown": {
+          "10": "Десять",
+          "9": "Девять",
+          "8": "Восемь",
+          "7": "Семь",
+          "6": "Шесть",
+          "5": "Пять",
+          "4": "Четыре",
+          "3": "Три",
+          "2": "Два",
+          "1": "Один"
         }
       }
     }
